@@ -15,29 +15,29 @@ import yaml
 
 
 scan_configuration = {
-    'start_column': 288,
-    'stop_column': 290, #320
+    'start_column': 470,
+    'stop_column': 472,
     'start_row': 0,
     'stop_row': 512,
 
     'n_injections': 100,
     'VCAL_HIGH': 140,
-    'VCAL_LOW_start': 140-10,
-    'VCAL_LOW_stop': 140-60,
+    'VCAL_LOW_start': 140-0,
+    'VCAL_LOW_stop': 140-40,
     'VCAL_LOW_step': -1
 
 
-    # # if enabled injection in all rows at the same time to measure both ANAMON0 and ANAMON1
-    # 'start_column': 450,
-    # 'stop_column': 451,
+    # # # if enabled injection in all rows at the same time to measure both ANAMON0 and ANAMON1
+    # 'start_column': 288,
+    # 'stop_column': 290,
     # 'start_row': 508,
     # 'stop_row': 512,
 
     # 'n_injections': 1,
     # 'VCAL_HIGH': 140,
-    # 'VCAL_LOW_start': 140-139,
-    # 'VCAL_LOW_stop': 140-140,
-    # 'VCAL_LOW_step': -10
+    # 'VCAL_LOW_start': 140-40,
+    # 'VCAL_LOW_stop': 140-141,
+    # 'VCAL_LOW_step': -20
 
     # 'n_injections': 100,
     # 'VCAL_HIGH': 140,
@@ -65,8 +65,8 @@ class ThresholdScan(ScanBase):
             self.chip.masks.disable_mask[col, row] = False
             # self.chip.masks['tdac'][col, row] = 0 # --> Max solution to disable the pixel BUT not store in use_pixel NOR in masks.enable
 
-        # TDAC=4 for threshold tuning 0b100
-        #self.chip.masks['tdac'][start_column:stop_column, start_row:stop_row] = 4# TDAC=4 (default)
+        # # TDAC=4 for threshold tuning 0b100
+        # self.chip.masks['tdac'][start_column:stop_column, start_row:stop_row] = 4# TDAC=4 (default)
 
         #chip w8r13 bad cols
         # #Disable W8R13 bad/broken columns (25, 160, 161, 224, 274, 383-414 included, 447) and pixels
@@ -76,9 +76,6 @@ class ThresholdScan(ScanBase):
         # self.chip.masks['enable'][274,:] = False  # Many pixels don't fire
         # self.chip.masks['enable'][383:415,:] = False  # Wrong/random ToT
         # self.chip.masks['enable'][447,:] = False  # Many pixels don't fire
-
-
-
 
 
         # # Disable W8R13 bad/broken columns (25, 160, 161, 224, 274, 383-414 included, 447) and pixels
@@ -104,7 +101,7 @@ class ThresholdScan(ScanBase):
 
         col_bad = [] #
         # W8R6 bad columns (246 to 251 included: double-cols will be disabled)
-        #col_bad += [248]
+        col_bad += [248]
         # # W8R13 pixels that fire even when disabled
         # col_bad += list(range(383,415)) # chip w8r13
         # col_bad += list(range(0,40)) # chip w8r13
@@ -126,8 +123,8 @@ class ThresholdScan(ScanBase):
             # To enable only the used columns, use  self.chip._write_register(171+i, v)
             # To disable BCID distribution in all columns, use  self.chip._write_register(171+i, 0)
             # self.chip._write_register(171+i, v)
-            self.chip._write_register(171+i, 0xffff)
-            #self.chip._write_register(171+i, 0)
+            # self.chip._write_register(171+i, 0xffff)
+            self.chip._write_register(171+i, 0)
             # EN_RO_RST_CONF
             self.chip._write_register(187+i, v)
             # EN_FREEZE_CONF
@@ -145,18 +142,18 @@ class ThresholdScan(ScanBase):
         self.chip.registers["SEL_PULSE_EXT_CONF"].write(0)
         self.chip.registers["CMOS_TX_EN_CONF"].write(1)
 
-        # # W8R06 irradiated HVC used TB2024 run 1566 TH=15.9 @30C
-        # self.chip.registers["IBIAS"].write(100)
-        # self.chip.registers["ITHR"].write(30) #def 30
-        # self.chip.registers["ICASN"].write(30) #def 30
-        # self.chip.registers["IDB"].write(100)
-        # self.chip.registers["ITUNE"].write(250)
-        # self.chip.registers["IDEL"].write(88)
-        # self.chip.registers["IRAM"].write(50)
-        # self.chip.registers["VRESET"].write(50)
-        # self.chip.registers["VCASP"].write(40)
-        # self.chip.registers["VCASC"].write(140)
-        # self.chip.registers["VCLIP"].write(255)
+        # W8R06 irradiated HVC used TB2024 run 1566 TH=15.9 @30C and W8R04
+        self.chip.registers["IBIAS"].write(100)
+        self.chip.registers["ITHR"].write(30) #def 30
+        self.chip.registers["ICASN"].write(30) #def 30
+        self.chip.registers["IDB"].write(100)
+        self.chip.registers["ITUNE"].write(250)
+        self.chip.registers["IDEL"].write(88)
+        self.chip.registers["IRAM"].write(50)
+        self.chip.registers["VRESET"].write(50)
+        self.chip.registers["VCASP"].write(40)
+        self.chip.registers["VCASC"].write(140)
+        self.chip.registers["VCLIP"].write(255)
 
         #  # # W8R13 not irradiate
         # self.chip.registers["IBIAS"].write(100)
@@ -171,7 +168,20 @@ class ThresholdScan(ScanBase):
         # self.chip.registers["VCASC"].write(205)
         # self.chip.registers["VCLIP"].write(255)
 
-        # # # W8R06 irradiated DCC used TB2024 run 1484 THR=30.6 DAC
+        # # # # W8R06 irradiated DCC used TB2024 run 1484 THR=30.6 DAC and W8R4
+        # self.chip.registers["IBIAS"].write(100)
+        # self.chip.registers["ITHR"].write(64)  # TB ITHR=64
+        # self.chip.registers["ICASN"].write(10)  # TB ICASN=20
+        # self.chip.registers["IDB"].write(100)  # TB IDB=100
+        # self.chip.registers["ITUNE"].write(250)
+        # self.chip.registers["IDEL"].write(88)  #prebvious lab test data with 88
+        # self.chip.registers["IRAM"].write(50)
+        # self.chip.registers["VRESET"].write(143) # TB 143
+        # self.chip.registers["VCASP"].write(93)
+        # self.chip.registers["VCASC"].write(205)
+        # self.chip.registers["VCLIP"].write(255)
+
+        # # # W2R17 irradiated 2.5e14 DCC
         # self.chip.registers["IBIAS"].write(100)
         # self.chip.registers["ITHR"].write(64)  # TB ITHR=64
         # self.chip.registers["ICASN"].write(20)  # TB ICASN=20
@@ -183,19 +193,6 @@ class ThresholdScan(ScanBase):
         # self.chip.registers["VCASP"].write(93)
         # self.chip.registers["VCASC"].write(205)
         # self.chip.registers["VCLIP"].write(255)
-
-        # # W2R17 irradiated 2.5e14 DCC
-        self.chip.registers["IBIAS"].write(100)
-        self.chip.registers["ITHR"].write(64)  # TB ITHR=64
-        self.chip.registers["ICASN"].write(5)  # TB ICASN=20
-        self.chip.registers["IDB"].write(100)  # TB IDB=100
-        self.chip.registers["ITUNE"].write(250)
-        self.chip.registers["IDEL"].write(88)  #prebvious lab test data with 88
-        self.chip.registers["IRAM"].write(50)
-        self.chip.registers["VRESET"].write(143) # TB 143
-        self.chip.registers["VCASP"].write(93)
-        self.chip.registers["VCASC"].write(205)
-        self.chip.registers["VCLIP"].write(255)
 
 
 
@@ -284,7 +281,7 @@ class ThresholdScan(ScanBase):
         self.chip.registers["STOP_CONF"].write(271)
 
 
-        # # Enable analog monitoring pixel DC
+        # # # Enable analog monitoring pixel DC
         # self.chip.registers["EN_PULSE_ANAMON_L"].write(1)
         # self.chip.registers["ANAMON_SFN_L"].write(0b0001)
         # self.chip.registers["ANAMON_SFP_L"].write(0b1000)
@@ -305,9 +302,9 @@ class ThresholdScan(ScanBase):
         # self.chip.registers["MON_EN_ITUNE"].write(1)
         # self.chip.registers["OVR_EN_ITUNE"].write(0)
 
-        # configuration to overwrite ITUNE
-        self.chip.registers["MON_EN_ITUNE"].write(0)
-        self.chip.registers["OVR_EN_ITUNE"].write(1) # 1 se voglio abilitare OVRITUNE
+        # # configuration to overwrite ITUNE
+        # self.chip.registers["MON_EN_ITUNE"].write(0)
+        # self.chip.registers["OVR_EN_ITUNE"].write(1) # 1 se voglio abilitare OVRITUNE
 
         self.daq.rx_channels['rx0']['DATA_DELAY'] = 14
 
@@ -328,7 +325,7 @@ class ThresholdScan(ScanBase):
                 #shift_and_inject(chip=self.chip, n_injections=n_injections, pbar=pbar, scan_param_id=scan_param_id)
                 shift_and_inject(chip=self.chip, n_injections=n_injections, pbar=pbar, scan_param_id=scan_param_id,PulseStartCnfg=19)
                 # if we want to measure ANAMON0 and ANAMON1 at the same time, the following line inject in all rows at the same time
-                #self.chip.inject(PulseStartCnfg=19, PulseStopCnfg=19+900, repetitions=n_injections, wait_cycles=1, latency=1400)
+                # self.chip.inject(PulseStartCnfg=19, PulseStopCnfg=19+900, repetitions=n_injections, wait_cycles=1, latency=1400)
         pbar.close()
         self.log.success('Scan finished')
 
@@ -337,8 +334,8 @@ class ThresholdScan(ScanBase):
             a.analyze_data()
 
         if self.configuration['bench']['analysis']['create_pdf']:
-            with plotting.Plotting(analyzed_data_file=a.analyzed_data_file) as p:
-                p.create_standard_plots()
+             with plotting.Plotting(analyzed_data_file=a.analyzed_data_file) as p:
+                 p.create_standard_plots()
 
 
 if __name__ == "__main__":

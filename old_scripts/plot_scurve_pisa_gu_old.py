@@ -16,7 +16,7 @@ import tables as tb
 from tqdm import tqdm
 from uncertainties import ufloat
 from plot_utils_pisa import *
-from plot_utils_pisa_gu import get_block_matrix,export_mask_yaml
+from plot_utils_pisa_gu import get_block_matrix
 
 VIRIDIS_WHITE_UNDER = matplotlib.cm.get_cmap('viridis').copy()
 VIRIDIS_WHITE_UNDER.set_under('w')
@@ -68,7 +68,6 @@ def main(input_file, overwrite=False, no_fit=False):
         col_start = int(cfg["configuration_in.scan.scan_config.start_column"])
         col_stop = int(cfg["configuration_in.scan.scan_config.stop_column"])
         row_n, col_n = row_stop - row_start, col_stop - col_start
-        thr_gen = np.zeros((512,512))
 
         # Prepare histograms
         occupancy = np.zeros((col_n, row_n, charge_dac_bins))
@@ -77,8 +76,6 @@ def main(input_file, overwrite=False, no_fit=False):
         dt_q_hist = [np.zeros((charge_dac_bins, 479)) for _ in range(len(FRONTENDS) + 1)]
         tot_per_pixel_hist = np.zeros((col_n, row_n, 128))
         tdac = f.root.configuration_out.chip.masks.tdac[:]
-        enable_mask = f.root.configuration_out.chip.masks.enable[:]
-
         matrix_dividers = [32,1]
 
 
@@ -350,7 +347,7 @@ def main(input_file, overwrite=False, no_fit=False):
         plt.xlabel("Injected charge [DAC]")
         plt.ylabel("Occupancy")
         plt.ylim(0, 1.5)
-        plt.xlim(0, 70)
+        plt.xlim(0, 40)
         plt.grid()
         plt.legend(ncol=2)
         set_integer_ticks(plt.gca().xaxis)
@@ -452,37 +449,15 @@ def main(input_file, overwrite=False, no_fit=False):
         plt.yscale('log')
         pdf.savefig(); plt.clf()
 
-        th_min = th_mean.n-6*th_mean.s
-        print(f"First 200 pixels with THR < mean THR - 6*σ ({round(th_min,1)})")
-        index = -1
-        thr_gen[col_start:col_stop,row_start:row_stop] = threshold_DAC
-        low_thr_pixels = thr_gen<0 # Create a matrix of False
-        low_thr_pixels[enable_mask] = thr_gen[enable_mask] < th_min
-        export_mask_yaml(input_file,low_thr_pixels,os.path.splitext(input_file)[0],thr_gen)
-        # for i, (col, row) in enumerate(zip(*np.nonzero((threshold_DAC < th_min)&(threshold_DAC >0)))):
+        th_min = th_mean.n-4*th_mean.s
+        print(f"First 100 pixels with THR < mean THR - 4*σ ({th_min})")
         for i, (col, row) in enumerate(zip(*np.nonzero((threshold_DAC < th_min)))):
-
-            index = i
-
-            if i >= 200:
-                continue
-            else:
-                print(f"    ({col+col_start:3d}, {row+row_start:3d}), Noise = {noise_DAC[col,row]:.1f}, THR = {threshold_DAC[col,row]:.1f}, TDAC = {tdac[col+col_start,row+row_start]}")
-        print(f"Number of pixels with THR < mean THR - 6*σ ({round(th_min,1)}) AND not disabled: {index+1}")
-
-        print("First 100 pixels with noise > 4")
-        # print("# of pixel with THR < 28 ",len(*np.nonzero((threshold_DAC > 0 )&(threshold_DAC < 28))))
-        index = -1
-        for i, (col, row) in enumerate(zip(*np.nonzero((noise_DAC > 4 )))):
-            index = i
             if i >= 100:
-                a = 0
-            else:
-                print(f"    ({col+col_start:3d}, {row+row_start:3d}), Noise = {noise_DAC[col,row]:.1f}, THR = {threshold_DAC[col,row]:.1f}, TDAC= {tdac[col+col_start,row+row_start]}")
-            #print(f"    ({col+col_start:3d}, {row+row_start:3d}), THR = {threshold_DAC[col,row]}")
-        print("Number of pixel with noise > 4 ",index+1)
+                break
+            print(f"    ({col+col_start:3d}, {row+row_start:3d}), THR = {threshold_DAC[col,row]}, TDAC= {tdac[col+col_start,row+row_start]}")
 
         for i, (fc, lc, name) in enumerate(FRONTENDS):
+            # print(fc,lc)
             if fc >= col_stop or lc < col_start:
                 continue
             fc = max(0, fc - col_start)
@@ -532,7 +507,7 @@ def main(input_file, overwrite=False, no_fit=False):
 
         # Threshold map
         plt.axes((0.125, 0.11, 0.775, 0.72))
-        plt.pcolormesh(occupancy_edges[0], occupancy_edges[1], threshold_DAC.transpose(), vmin=round(th_mean.n-2*th_mean.s), vmax=round(th_mean.n+2*th_mean.s),
+        plt.pcolormesh(occupancy_edges[0], occupancy_edges[1], threshold_DAC.transpose(), vmin=32, vmax=38,
                        rasterized=True)  # Necessary for quick save and view in PDF
         plt.title(subtitle)
         plt.suptitle("Threshold map")
@@ -556,8 +531,9 @@ def main(input_file, overwrite=False, no_fit=False):
 
         ddx = matrix_dividers[0]
         ddy = matrix_dividers[1]
-        t_blocks,t_blocks_masked = get_block_matrix(thr_gen,dx = ddx,dy=ddy,mask=enable_mask)
-        t_blocks = t_blocks_masked.transpose()
+
+        t_blocks,t_blocks_masked = get_block_matrix(threshold_DAC[0:512, 0:512],dx = ddx,dy=ddy,mask=None)
+        t_blocks = t_blocks.transpose()
         mean_thr = round(np.mean(t_blocks[np.nonzero(t_blocks)]))
         indx_col = [i for i in range(len(t_blocks))]
         indx = [i for i in range(len(t_blocks[0]))]
@@ -600,17 +576,6 @@ def main(input_file, overwrite=False, no_fit=False):
         plt.yscale('log')
         plt.legend()
         pdf.savefig(); plt.clf()
-
-        noise_max = noise_mean.n+8*noise_mean.s
-        print(f"First 100 pixels with noise > mean noise + 8*σ ({round(noise_max,1)})")
-        index = -1
-        for i, (col, row) in enumerate(zip(*np.nonzero((noise_DAC > noise_max)))):
-            index = i
-            if i >= 100:
-                continue
-            else:
-                print(f"    ({col+col_start:3d}, {row+row_start:3d}), Noise = {noise_DAC[col,row]:.1f}, THR = {threshold_DAC[col,row]:.1f}, TDAC = {tdac[col+col_start,row+row_start]}")
-        print(f"Number of pixels with noise > mean noise + 8*σ ({round(noise_max,1)}) AND not disabled: {index+1}")
 
 
 

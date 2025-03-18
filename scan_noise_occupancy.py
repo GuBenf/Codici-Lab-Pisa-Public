@@ -17,8 +17,8 @@ from tjmonopix2.system.scan_base import ScanBase
 import yaml
 
 scan_configuration = {
-    'start_column': 225,
-    'stop_column': 448,
+    'start_column': 449,
+    'stop_column': 480,
     'start_row': 0,
     'stop_row': 512,
 
@@ -49,11 +49,12 @@ class NoiseOccScan(ScanBase):
 
         col_bad = []
         # W8R6 bad columns (246 to 251 included: double-cols will be disabled)
-        #col_bad += [248]
+        col_bad += [248]
+        # col_bad += [436]
         # # W8R13 pixels that fire even when disabled
         # col_bad += list(range(383,415)) # chip w8r13
         # col_bad += list(range(0,40)) # chip w8r13
-        col_bad += list(range(448,512)) # HV col disabled
+        # col_bad += list(range(448,512)) # HV col disabled
         # Disable readout for double-columns of col_disabled and those outside start_column:stop_column
         col_disabled = col_bad
         col_disabled += list(range(0, start_column & 0xfffe))
@@ -73,7 +74,7 @@ class NoiseOccScan(ScanBase):
             # To disable BCID distribution in all columns, use  self.chip._write_register(171+i, 0)
             # self.chip._write_register(171+i, v)
             self.chip._write_register(171+i, 0xffff)
-            #self.chip._write_register(171+i, 0)
+            # self.chip._write_register(171+i, 0)
             # EN_RO_RST_CONF
             self.chip._write_register(187+i, v)
             # EN_FREEZE_CONF
@@ -86,20 +87,31 @@ class NoiseOccScan(ScanBase):
         self.chip.masks.apply_disable_mask()
         self.chip.masks.update(force=True)
 
-
-
-        # # W8R06 irradiated DCC used TB2024 run 1484 THR=30.6 DAC
+        # W8R06 irradiated HVC used TB2024 run 1566 TH=15.9 @30C and also W8R04
         self.chip.registers["IBIAS"].write(100)
-        self.chip.registers["ITHR"].write(55)  # TB ITHR=64
-        self.chip.registers["ICASN"].write(5)  # TB ICASN=20
-        self.chip.registers["IDB"].write(100)  # TB IDB=100
+        self.chip.registers["ITHR"].write(30) #def 30
+        self.chip.registers["ICASN"].write(30) #def 30
+        self.chip.registers["IDB"].write(100)
         self.chip.registers["ITUNE"].write(250)
-        self.chip.registers["IDEL"].write(88)  #prebvious lab test data with 88
+        self.chip.registers["IDEL"].write(88)
         self.chip.registers["IRAM"].write(50)
-        self.chip.registers["VRESET"].write(143) # TB 143
-        self.chip.registers["VCASP"].write(93)
-        self.chip.registers["VCASC"].write(205)
+        self.chip.registers["VRESET"].write(50)
+        self.chip.registers["VCASP"].write(40)
+        self.chip.registers["VCASC"].write(140)
         self.chip.registers["VCLIP"].write(255)
+
+        # # # W8R06 irradiated DCC used TB2024 run 1484 THR=30.6 DAC  and also W8R04
+        # self.chip.registers["IBIAS"].write(100)
+        # self.chip.registers["ITHR"].write(64)  # TB ITHR=64
+        # self.chip.registers["ICASN"].write(10)  # TB ICASN=20
+        # self.chip.registers["IDB"].write(100)  # TB IDB=100
+        # self.chip.registers["ITUNE"].write(250)
+        # self.chip.registers["IDEL"].write(88)  #prebvious lab test data with 88
+        # self.chip.registers["IRAM"].write(50)
+        # self.chip.registers["VRESET"].write(143) # TB 143
+        # self.chip.registers["VCASP"].write(93)
+        # self.chip.registers["VCASC"].write(205)
+        # self.chip.registers["VCLIP"].write(255)
 
         # # # configuration to monitor ITUNE
         # self.chip.registers["MON_EN_ITUNE"].write(1)

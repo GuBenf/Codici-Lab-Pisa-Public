@@ -39,6 +39,8 @@ def main(input_file, overwrite=False, no_fit=False):
     # Open file and fill histograms (actual plotting below)
     with tb.open_file(input_file) as f:
         cfg = get_config_dict(f)
+        tdac = f.root.configuration_out.chip.masks.tdac[:]
+
 
         n_hits = f.root.Dut.shape[0]
 
@@ -139,6 +141,32 @@ def main(input_file, overwrite=False, no_fit=False):
 
         draw_summary(input_file, cfg)
         pdf.savefig(); plt.clf()
+
+
+        # # #### HERE
+        # for t in zip(tdac):
+        #     # draw_summary(input_file, c)
+        #     # pdf.savefig(); plt.clf()
+
+        #     # TDAC map
+        #     plt.axes((0.125, 0.11, 0.775, 0.72))
+        #     nzc, nzr = np.nonzero(t)
+        #     if not nzc.size:
+        #         fc, lc, fr, lr = 0, 512, 0, 512
+        #     else:
+        #         fc, lc = nzc.min(), nzc.max() + 1
+        #         fr, lr = nzr.min(), nzr.max() + 1
+        #     del nzc, nzr
+        #     plt.pcolormesh(np.arange(fc, lc + 1), np.arange(fr, lr + 1),
+        #                 t[fc:lc, fr:lr].transpose(),
+        #                 vmin=-0.5, vmax=7.5, cmap=TDAC_CMAP, rasterized=True)
+        #     plt.xlabel("Column")
+        #     plt.ylabel("Row")
+        #     plt.title("Map of TDAC values")
+        #     frontend_names_on_top()
+        #     integer_ticks_colorbar().set_label("TDAC")
+        #     pdf.savefig(); plt.clf()
+        # # print("Summary")
 
         if n_hits == 0:
             plt.annotate("No hits recorded!", (0.5, 0.5), ha='center', va='center')
@@ -266,6 +294,31 @@ def main(input_file, overwrite=False, no_fit=False):
          #        break
          #    print(f"    ({col+col_start:3d}, {row+row_start:3d}), THR = {threshold_DAC[col,row]}")
 
+
+        print("BEFORE fit First 500 pixels with THR < 30")
+        # print("Number of pixel with THR < 30 ",len(*np.nonzero((threshold_DAC > 0 )&(threshold_DAC < 30))))
+        index = -1
+        for i, (col, row) in enumerate(zip(*np.nonzero((threshold_DAC > 0 )&(threshold_DAC < 30)))):
+            index = i
+            if i >= 500:
+                a = 0
+            else:
+                print(f"    ({col+col_start:3d}, {row+row_start:3d}), THR = {threshold_DAC[col,row]:.1f}, Noise = {noise_DAC[col,row]:.1f}, TDAC= {tdac[col+col_start,row+row_start]}")
+            #print(f"    ({col+col_start:3d}, {row+row_start:3d}), THR = {threshold_DAC[col,row]}")
+        print("Number of pixel with THR < 30 ",index+1)
+
+        print("First 100 pixels with noise > 4")
+        # print("# of pixel with THR < 28 ",len(*np.nonzero((threshold_DAC > 0 )&(threshold_DAC < 28))))
+        index = -1
+        for i, (col, row) in enumerate(zip(*np.nonzero((noise_DAC > 4 )))):
+            index = i
+            if i >= 100:
+                a = 0
+            else:
+                print(f"    ({col+col_start:3d}, {row+row_start:3d}), Noise = {noise_DAC[col,row]:.1f}, THR = {threshold_DAC[col,row]:.1f}, TDAC= {tdac[col+col_start,row+row_start]}")
+            #print(f"    ({col+col_start:3d}, {row+row_start:3d}), THR = {threshold_DAC[col,row]}")
+        print("Number of pixel with noise > 4 ",index+1)
+
         charge_dac_np = np.array(charge_dac_values)
         if not no_fit:
             # Compute the threshold and noise for each pixels by fitting
@@ -309,6 +362,30 @@ def main(input_file, overwrite=False, no_fit=False):
             #        break
             #    print(f"    ({col+col_start:3d}, {row+row_start:3d}), THR = {threshold_DAC[col,row]}")
 
+        print("AFTER fit: First 500 pixels with THR < 30")
+        # print("Number of pixel with THR < 30 ",len(*np.nonzero((threshold_DAC > 0 )&(threshold_DAC < 30))))
+        index = -1
+        for i, (col, row) in enumerate(zip(*np.nonzero((threshold_DAC > 0 )&(threshold_DAC < 30)))):
+            index = i
+            if i >= 500:
+                a = 0
+            else:
+                print(f"    ({col+col_start:3d}, {row+row_start:3d}), THR = {threshold_DAC[col,row]:.1f}, Noise = {noise_DAC[col,row]:.1f}, TDAC= {tdac[col+col_start,row+row_start]}")
+            #print(f"    ({col+col_start:3d}, {row+row_start:3d}), THR = {threshold_DAC[col,row]}")
+        print("Number of pixel with THR < 30 ",index+1)
+
+        print("First 100 pixels with noise > 4")
+        # print("# of pixel with THR < 28 ",len(*np.nonzero((threshold_DAC > 0 )&(threshold_DAC < 28))))
+        index = -1
+        for i, (col, row) in enumerate(zip(*np.nonzero((noise_DAC > 4 )))):
+            index = i
+            if i >= 100:
+                a = 0
+            else:
+                print(f"    ({col+col_start:3d}, {row+row_start:3d}), Noise = {noise_DAC[col,row]:.1f}, THR = {threshold_DAC[col,row]:.1f}, TDAC= {tdac[col+col_start,row+row_start]}")
+            #print(f"    ({col+col_start:3d}, {row+row_start:3d}), THR = {threshold_DAC[col,row]}")
+        print("Number of pixel with noise > 4 ",index+1)
+
         # S-Curve for specific pixels
 #        for col, row in [(219, 161), (219, 160), (220, 160), (221, 160), (220, 159), (221, 159) ,(222,188) , (219,192), (218,155), (216,117), (222,180), (222,170),(221,136),(221,205),(221,174)]:
         # for col, row in [(221, 160),(222,188) , (222,180), (222,170),(221,205),(221,174), (218,155), (218,150), (219,192), (219,180) , (213,213)]:
@@ -322,7 +399,7 @@ def main(input_file, overwrite=False, no_fit=False):
         # +        [(240, 390), (240, 181), (50,306), (50,221), (50,500),(50,501),(50,502)]
         # +        [(50,503),(50,504),(50,505),(50,506),(50,507),(50,508),(50,509),(50,510),(50,511)]
         # +        [(300,110),(300,500)]
-        [(288,512),(288,400),(288,300), (288,200), (288,100), (288,50),(288,2),(288,250),(288,350),(288,450)]
+        [(288,2),(288,100),(288,200),(288,300),(288,400),(288,511),(288,512), (288,342), (289,238)]
         #   [(300,512),(300,511),(301,512), (301,511), (300,500), (301,500),(300,2),(470,137),(471,474),(470,150)]
         # +       [(300,110),(300,118),(300,120),(300,200),(300,300),(300,400),(300,500)]\
             #+        [(300,110),(300,111),(300,112),(300,113),(300,114),(300,115),(300,116),(300,117),(300,118),(300,120),]\
@@ -364,7 +441,7 @@ def main(input_file, overwrite=False, no_fit=False):
             plt.suptitle(f"ToT curve ({name})")
             plt.xlabel("Injected charge [DAC]")
             plt.ylabel("ToT [25 ns]")
-            plt.ylim(0,30)
+            plt.ylim(0,40)
             plt.xlim(0,220)
             plt.grid(axis='both',)
             set_integer_ticks(plt.gca().xaxis, plt.gca().yaxis)
@@ -496,7 +573,7 @@ def main(input_file, overwrite=False, no_fit=False):
 
         # Threshold map
         plt.axes((0.125, 0.11, 0.775, 0.72))
-        plt.pcolormesh(occupancy_edges[0], occupancy_edges[1], threshold_DAC.transpose(), vmin=23, vmax=29,
+        plt.pcolormesh(occupancy_edges[0], occupancy_edges[1], threshold_DAC.transpose(), vmin=20, vmax=33,
                        rasterized=True)  # Necessary for quick save and view in PDF
         plt.title(subtitle)
         plt.suptitle("Threshold map")

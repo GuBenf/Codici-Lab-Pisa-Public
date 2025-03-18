@@ -144,7 +144,7 @@ def export_mask_yaml(path_h5,basepath, noisy_pixels, occ, clim, measurement):
         row = disabled_pixels[1,i]
         col = disabled_pixels[0,i]
         #print("[",row,col,"]")
-        masked_pixels.append({'row': int(row), 'col': int(col), 'hits': 0.})
+        masked_pixels.append({'row': int(row), 'col': int(col), 'hits': 99999.})
 
     # for i in range(np.shape(disabled_pixels)[1]):
     #     file.write(str(disabled_pixels[:,i]))
@@ -152,19 +152,17 @@ def export_mask_yaml(path_h5,basepath, noisy_pixels, occ, clim, measurement):
 
     for row in range(512):
         for col in range(512):
+            # if col>223 and col<448:
             if noisy_pixels[col, row]:
                 masked_pixels.append({'row': row, 'col': col, 'hits': float(occ[col, row])})
     output = {'measurement': measurement,
-              'median_hits': float(np.median(occ[occ > 0])),
-              'std_hits': float(np.std(occ[occ > 0])),
-              'cutoff': float(clim),
-              'masked_pixels': masked_pixels,
-              }
-    try:
-        with open(path.join(basepath, 'masked_pixels.yaml'), 'w') as outfile:
-            yaml.dump(output, outfile, default_flow_style=False, sort_keys=False)
-    except FileNotFoundError:
-        print("No mask .yaml file found, no pixels masked.")
+            'median_hits': float(np.median(occ[occ > 0])),
+            'std_hits': float(np.std(occ[occ > 0])),
+            'cutoff': float(clim),
+            'masked_pixels': masked_pixels,
+            }
+    with open(path.join(basepath, 'masked_pixels.yaml'), 'w') as outfile:
+        yaml.dump(output, outfile, default_flow_style=False, sort_keys=False)
 
 
 def table_to_dict(table_item, key_name='attribute', value_name='value'):
@@ -228,6 +226,7 @@ def plot_from_file(path_h5, output_dir, clim):
     else:
         clim = None
     if clim:
+        # noisy_pixels = hist_occ < clim    #pixel with 0hits
         noisy_pixels = hist_occ > clim
 
     prop_occ = {
@@ -268,7 +267,6 @@ parser.add_argument('-i', action='store_true', default=None, help='interpret h5 
 parser.add_argument('-I', action='store_true', default=None, help='always re-interpret h5 files')
 parser.add_argument('-p', action='store_true', default=None, help='plot data from interpreted h5 files')
 parser.add_argument('-P', action='store_true', default=None, help='force replot of interpreted h5 files')
-parser.add_argument('-f', action='store_true', default=None, help='plot data from last interpreted h5 file')
 parser.add_argument('--clim', default='auto', help='limits of the colorbar for the hitmaps, either a number, auto ('
                                                    'number of injections or by median), or off')
 parser.add_argument('--collect-plots', action='store_true', default=None, help='copy all plots to a single "plots" '
@@ -299,32 +297,15 @@ if args.collect_plots:
         os.mkdir(collect_dir)
 
 if args.p or args.P:
-    if args.f:
-        interpreted_files = glob.glob(os.path.join(args.d, "*_interpreted.h5"))
-        # Check if there are any interpreted.h5 files
-        if interpreted_files:
-            # Sort files by modification time, most recent first
-            latest_file = max(interpreted_files, key=os.path.getmtime)
-            output_dir = prepare_output_directory(latest_file, force=args.P)
-            if output_dir:
-                print("Plotting: " + path.basename(latest_file))
-                plot_from_file(latest_file, output_dir, args.clim)
-                if args.collect_plots:
-                    for file2 in glob.glob(os.path.join(output_dir, "*.png")):
-                        shutil.copy(file2, path.join(collect_dir, path.basename(file2)))
-            with plotting.Plotting(analyzed_data_file=latest_file) as p:
-                        p.create_standard_plots()
-
-    else:
-        #for file in glob.glob(os.path.join(args.d, "*_scan_interpreted.h5")):
-        for file in glob.glob(os.path.join(args.d, "*080838*_scan_interpreted.h5")):
-            output_dir = prepare_output_directory(file, force=args.P)
-            if output_dir:
-                print("Plotting: " + path.basename(file))
-                plot_from_file(file, output_dir, args.clim)
-                if args.collect_plots:
-                    for file2 in glob.glob(os.path.join(output_dir, "*.png")):
-                        shutil.copy(file2, path.join(collect_dir, path.basename(file2)))
-            with plotting.Plotting(analyzed_data_file=file) as p:
-                        p.create_standard_plots()
+    #for file in glob.glob(os.path.join(args.d, "*_scan_interpreted.h5")):
+    for file in glob.glob(os.path.join(args.d, "*1314*_scan_interpreted.h5")):
+        output_dir = prepare_output_directory(file, force=args.P)
+        if output_dir:
+            print("Plotting: " + path.basename(file))
+            plot_from_file(file, output_dir, args.clim)
+            if args.collect_plots:
+                for file2 in glob.glob(os.path.join(output_dir, "*.png")):
+                    shutil.copy(file2, path.join(collect_dir, path.basename(file2)))
+        with plotting.Plotting(analyzed_data_file=file) as p:
+                    p.create_standard_plots()
 exit()

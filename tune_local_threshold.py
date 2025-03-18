@@ -20,8 +20,8 @@ from tjmonopix2.analysis import online as oa
 import yaml
 
 scan_configuration = {
-    'start_column': 225,
-    'stop_column': 448,
+    'start_column': 449,
+    'stop_column': 480,
     'start_row': 0,
     'stop_row': 512,
 
@@ -29,7 +29,7 @@ scan_configuration = {
 
     # Target threshold
     'VCAL_LOW': 30,
-    'VCAL_HIGH': 30+44
+    'VCAL_HIGH': 30+13
 }
 
 
@@ -72,7 +72,7 @@ class TDACTuning(ScanBase):
 
         col_bad = [] #
         # W8R6 bad columns (246 to 251 included: double-cols will be disabled)
-        #col_bad += [248]
+        col_bad += [248]
 
         # # W8R13 pixels that fire even when disabled
         # col_bad += list(range(383,415)) # chip w8r13
@@ -109,25 +109,38 @@ class TDACTuning(ScanBase):
         self.chip.masks.apply_disable_mask()
         self.chip.masks.update(force=True)
 
-        # # W2R17 irradiated 2.5e14 DCC
+        # W8R06 irradiated HVC used TB2024 run 1566 TH=15.9 @30C
         self.chip.registers["IBIAS"].write(100)
-        self.chip.registers["ITHR"].write(64)  # TB ITHR=64
-        self.chip.registers["ICASN"].write(5)  # TB ICASN=20
-        self.chip.registers["IDB"].write(100)  # TB IDB=100
+        self.chip.registers["ITHR"].write(30) #def 30
+        self.chip.registers["ICASN"].write(30) #def 30
+        self.chip.registers["IDB"].write(100)
         self.chip.registers["ITUNE"].write(250)
-        self.chip.registers["IDEL"].write(88)  #prebvious lab test data with 88
+        self.chip.registers["IDEL"].write(88)
         self.chip.registers["IRAM"].write(50)
-        self.chip.registers["VRESET"].write(143) # TB 143
-        self.chip.registers["VCASP"].write(93)
-        self.chip.registers["VCASC"].write(205)
+        self.chip.registers["VRESET"].write(50)
+        self.chip.registers["VCASP"].write(40)
+        self.chip.registers["VCASC"].write(140)
         self.chip.registers["VCLIP"].write(255)
+
+        # # # W2R17 irradiated 2.5e14 DCC
+        # self.chip.registers["IBIAS"].write(100)
+        # self.chip.registers["ITHR"].write(64)  # TB ITHR=64
+        # self.chip.registers["ICASN"].write(40)  # TB ICASN=20
+        # self.chip.registers["IDB"].write(100)  # TB IDB=100
+        # self.chip.registers["ITUNE"].write(250)
+        # self.chip.registers["IDEL"].write(88)  #prebvious lab test data with 88
+        # self.chip.registers["IRAM"].write(50)
+        # self.chip.registers["VRESET"].write(143) # TB 143
+        # self.chip.registers["VCASP"].write(93)
+        # self.chip.registers["VCASC"].write(205)
+        # self.chip.registers["VCLIP"].write(255)
 
 
 
         # # W8R06 irradiated DCC used TB2024 run 1484 THR=30.6 DAC
         # self.chip.registers["IBIAS"].write(100)
         # self.chip.registers["ITHR"].write(64)  # TB ITHR=64
-        # self.chip.registers["ICASN"].write(20)  # TB ICASN=20
+        # self.chip.registers["ICASN"].write(10)  # TB ICASN=20
         # self.chip.registers["IDB"].write(100)  # TB IDB=100
         # self.chip.registers["ITUNE"].write(250)
         # self.chip.registers["IDEL"].write(88)
@@ -150,13 +163,13 @@ class TDACTuning(ScanBase):
         # self.chip.registers["VCASC"].write(205)
         # self.chip.registers["VCLIP"].write(255)
 
-        # # # configuration to monitor ITUNE
-        # self.chip.registers["MON_EN_ITUNE"].write(1)
-        # self.chip.registers["OVR_EN_ITUNE"].write(0)
+        # # configuration to monitor ITUNE
+        #self.chip.registers["MON_EN_ITUNE"].write(1)
+        #self.chip.registers["OVR_EN_ITUNE"].write(0)
 
-        # configuration to overwrite ITUNE
-        self.chip.registers["MON_EN_ITUNE"].write(0)
-        self.chip.registers["OVR_EN_ITUNE"].write(1) # 1 se voglio abilitare OVRITUNE
+        # # configuration to overwrite ITUNE
+        # self.chip.registers["MON_EN_ITUNE"].write(0)
+        # self.chip.registers["OVR_EN_ITUNE"].write(1) # 1 se voglio abilitare OVRITUNE
 
 
         self.chip.registers["VL"].write(VCAL_LOW)

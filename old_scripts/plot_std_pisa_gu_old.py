@@ -12,10 +12,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tables as tb
 from tqdm import tqdm
-from plot_utils_pisa import *
+from plot_utils_pisa_gu import *
 
 
-def main(input_files, overwrite=False, log_tot=False, output_file=None):
+def main(input_files, overwrite=False, log_tot=False, output_file=None, ):
     if output_file is None:
         output_file = os.path.splitext(input_files[0])[0] + ".pdf"
     if os.path.isfile(output_file) and not overwrite:
@@ -29,15 +29,30 @@ def main(input_files, overwrite=False, log_tot=False, output_file=None):
     tot2d = np.zeros((512, 512))
     counts2d16 = np.zeros((32, 32))
     tot2d16 = np.zeros((32, 32))
+    matrix_dividers = [32,1]
     cfg = []
     tdac = []
     n_total_hits = 0
+    thr_map = []
+    scan_config = []
+    enable_mask = []
 
     for input_file in tqdm(input_files, disable=len(input_files)<2):
         print("Processing", input_file)
         with tb.open_file(input_file) as f:
             cfg.append(get_config_dict(f))
+            cf = int(cfg[0]['configuration_out.scan.scan_config.start_column'])
+            cl = int(cfg[0]['configuration_out.scan.scan_config.stop_column'])
+            rf = int(cfg[0]['configuration_out.scan.scan_config.start_row'])
+            rl = int(cfg[0]['configuration_out.scan.scan_config.stop_row'])
+            scan_config.append(cf)
+            scan_config.append(cl)
+            scan_config.append(rf)
+            scan_config.append(rl)
             tdac.append(f.root.configuration_out.chip.masks.tdac[:])
+            thr_map.append(f.root.ThresholdMap[:,:])
+            enable_mask.append(f.root.configuration_out.chip.masks.enable[:])
+
 
             try:
                 n_hits = f.root.Dut.shape[0]
@@ -114,11 +129,110 @@ def main(input_files, overwrite=False, log_tot=False, output_file=None):
             plt.gca().set_axis_off()
             pdf.savefig(); plt.clf()
 
-        for input_file, c, t in zip(input_files, cfg, tdac):
+        for input_file, c, t, mk, th in zip(input_files, cfg, tdac, enable_mask, thr_map):
             draw_summary(input_file, c)
             pdf.savefig(); plt.clf()
 
-            # TDAC map
+            # TDAC map all matrix
+            plt.axes((0.125, 0.11, 0.775, 0.72))
+            nzc, nzr = np.nonzero(t)
+            if not nzc.size:
+                fc, lc, fr, lr = 0, 512, 0, 512
+            else:
+                fc, lc = nzc.min(), nzc.max() + 1
+                fr, lr = nzr.min(), nzr.max() + 1
+
+            del nzc, nzr
+
+            plt.pcolormesh(np.arange(fc, lc + 1), np.arange(fr, lr + 1),
+                           t[fc:lc, fr:lr].transpose(),
+                           vmin=-0.5, vmax=7.5, cmap=TDAC_CMAP, rasterized=True)
+            plt.xlabel("Column")
+            plt.ylabel("Row")
+            plt.title("Map of TDAC values (all matrix)")
+            frontend_names_on_top()
+            integer_ticks_colorbar().set_label("TDAC")
+            pdf.savefig(); plt.clf()
+
+            # TDAC map enabled matrix
+            plt.axes((0.125, 0.11, 0.775, 0.72))
+            fc = scan_config[0]
+            lc = scan_config[1]
+            fr = scan_config[2]
+            lr = scan_config[3]
+
+            plt.pcolormesh(np.arange(fc, lc + 1), np.arange(fr, lr + 1),
+                           t[fc:lc, fr:lr].transpose(),
+                           vmin=-0.5, vmax=7.5, cmap=TDAC_CMAP, rasterized=True)
+            plt.xlabel("Column")
+            plt.ylabel("Row")
+            plt.title("Map of TDAC values (enabled matrix)")
+            #frontend_names_on_top()
+            integer_ticks_colorbar().set_label("TDAC")
+            pdf.savefig(); plt.clf()
+
+            # TDAC map regrouped
+            plt.axes((0.125, 0.11, 0.775, 0.72))
+            fc = scan_config[0]
+            lc = scan_config[1]
+            fr = scan_config[2]
+            lr = scan_config[3]
+            ddx = matrix_dividers[0]
+            ddy = matrix_dividers[1]
+            m_blocks,m_blocks_masked = get_block_matrix(t[0:512, 0:512],dx = ddx,dy=ddy,mask=mk[0:512, 0:512])
+            # m_blocks = get_block_matrix(t[fc:lc, fr:lr],dx = ddx,dy=ddy)
+            x_ti = np.arange(0+ddx/2, t.shape[1]+ddx/2, ddx)  # X axis values
+            y_ti = np.arange(0+ddy/2, t.shape[0]+ddy/2, ddy)   # Y axis values
+
+            plt.pcolormesh(x_ti, y_ti,
+                           m_blocks_masked,
+                           vmin=-0.5, vmax=7.5, cmap=TDAC_CMAP, rasterized=True)
+            plt.xlabel("Column")
+            plt.ylabel("Row")
+            plt.title("Map of mean TDAC values")
+            frontend_names_on_top()
+            integer_ticks_colorbar().set_label("TDAC")
+            pdf.savefig(); plt.clf()
+            del x_ti,y_ti,m_blocks,m_blocks_masked
+
+            # TDAC full row projection
+            plt.axes((0.125, 0.11, 0.775, 0.72))
+            nzc, nzr = np.nonzero(t)
+            if not nzc.size:
+                fc, lc, fr, lr = 0, 512, 0, 512
+            else:
+                fc, lc = nzc.min(), nzc.max() + 1
+                fr, lr = nzr.min(), nzr.max() + 1
+
+            del nzc, nzr
+            t_dac_rows = [np.mean(t[:,i]) for i in range(lr)]
+            indx = [i for i in range(lr)]
+            plt.plot(indx,t_dac_rows)
+            plt.xlabel("Row")
+            plt.ylabel("Mean TDAC")
+            plt.grid()
+            plt.title("Mean of TDAC values per row")
+            #frontend_names_on_top()
+            # integer_ticks_colorbar().set_label("TDAC")
+            pdf.savefig(); plt.clf()
+            del t_dac_rows,indx
+
+            # TDAC selected flavor row projection
+            for fc, lc, name in FRONTENDS:
+                plt.axes((0.125, 0.11, 0.775, 0.72))
+                t_dac_rows = [np.mean(t[fc:lc,i]) for i in range(lr)]
+                indx = [i for i in range(lr)]
+                plt.plot(indx,t_dac_rows)
+                plt.xlabel("Row")
+                plt.ylabel("Mean TDAC")
+                plt.grid()
+                plt.title("Mean of TDAC values per row - "+name)
+                #frontend_names_on_top()
+                # integer_ticks_colorbar().set_label("TDAC")
+                pdf.savefig(); plt.clf()
+                del t_dac_rows,indx
+
+            # TDAC partial row projection
             plt.axes((0.125, 0.11, 0.775, 0.72))
             nzc, nzr = np.nonzero(t)
             if not nzc.size:
@@ -127,15 +241,162 @@ def main(input_files, overwrite=False, log_tot=False, output_file=None):
                 fc, lc = nzc.min(), nzc.max() + 1
                 fr, lr = nzr.min(), nzr.max() + 1
             del nzc, nzr
+
+            ddx = matrix_dividers[0]
+            ddy = matrix_dividers[1]
+
+            # t_blocks = get_block_matrix(t[fc:lc, fr:lr],dx = ddx,dy=ddy).transpose()
+            t_blocks,t_blocks_masked = get_block_matrix(t[0:512, 0:512],dx = ddx,dy=ddy,mask=mk[0:512, 0:512])
+            t_blocks_masked = t_blocks_masked.transpose()
+            # t_blocks,_ = get_block_matrix(t[0:512, 0:512],dx = ddx,dy=ddy)
+            indx_col = [i for i in range(len(t_blocks_masked))]
+            indx = [i for i in range(len(t_blocks_masked[0]))]
+            # t_blocks_masked_m = [pp for pp in t_blocks_masked]
+            # plt.plot(indx,t_blocks_masked[0])
+            for j,p_col in enumerate(t_blocks_masked):
+                non_zero = [k for k in p_col if k != 0]
+                if len(non_zero)>0:
+                    plt.plot(indx,p_col,label=f"{ddx} cols group n.: {j}")
+
+            plt.xlabel(f"{ddy} x Row")
+            plt.ylabel("Mean TDAC")
+            plt.grid()
+            plt.title(f"Mean of TDAC values for a {ddx}x{ddy} block")
+            plt.legend(loc="best")
+            #frontend_names_on_top()
+            # integer_ticks_colorbar().set_label("TDAC")
+            pdf.savefig(); plt.clf()
+            del indx_col,indx, t_blocks, t_blocks_masked
+
+            # ------------------------------------------
+
+
+            # Threshold map all matrix
+            plt.axes((0.125, 0.11, 0.775, 0.72))
+            nzc, nzr = np.nonzero(th)
+            if not nzc.size:
+                fc, lc, fr, lr = 0, 512, 0, 512
+            else:
+                fc, lc = nzc.min(), nzc.max() + 1
+                fr, lr = nzr.min(), nzr.max() + 1
+
+            del nzc, nzr
+
             plt.pcolormesh(np.arange(fc, lc + 1), np.arange(fr, lr + 1),
-                           t[fc:lc, fr:lr].transpose(),
-                           vmin=-0.5, vmax=7.5, cmap=TDAC_CMAP, rasterized=True)
+                           th[fc:lc, fr:lr].transpose(),
+                           vmin=22, vmax=36, cmap="viridis", rasterized=True)
             plt.xlabel("Column")
             plt.ylabel("Row")
-            plt.title("Map of TDAC values")
+            plt.title("Map of THR values (all matrix)")
             frontend_names_on_top()
-            integer_ticks_colorbar().set_label("TDAC")
+            integer_ticks_colorbar().set_label("THR")
             pdf.savefig(); plt.clf()
+
+            # THR map enabled matrix
+            plt.axes((0.125, 0.11, 0.775, 0.72))
+            fc = scan_config[0]
+            lc = scan_config[1]
+            fr = scan_config[2]
+            lr = scan_config[3]
+
+            plt.pcolormesh(np.arange(fc, lc + 1), np.arange(fr, lr + 1),
+                           th[fc:lc, fr:lr].transpose(),
+                           vmin=22, vmax=36, cmap="viridis", rasterized=True)
+
+            plt.xlabel("Column")
+            plt.ylabel("Row")
+            plt.title("Map of THR values (enabled matrix)")
+            #frontend_names_on_top()
+            integer_ticks_colorbar().set_label("THR")
+            pdf.savefig(); plt.clf()
+
+            # THR map regrouped
+            plt.axes((0.125, 0.11, 0.775, 0.72))
+            fc = scan_config[0]
+            lc = scan_config[1]
+            fr = scan_config[2]
+            lr = scan_config[3]
+            ddx = matrix_dividers[0]
+            ddy = matrix_dividers[1]
+            m_blocks,m_blocks_masked = get_block_matrix(th[0:512, 0:512],dx = ddx,dy=ddy,mask=mk[0:512, 0:512])
+            # m_blocks = get_block_matrix(t[fc:lc, fr:lr],dx = ddx,dy=ddy)
+            x_ti = np.arange(0+ddx/2, th.shape[1]+ddx/2, ddx)  # X axis values
+            y_ti = np.arange(0+ddy/2, th.shape[0]+ddy/2, ddy)   # Y axis values
+            plt.pcolormesh(x_ti, y_ti,
+                           m_blocks_masked,
+                           vmin=22, vmax=36, cmap="viridis", rasterized=True)
+            plt.xlabel("Column")
+            plt.ylabel("Row")
+            plt.title("Map of mean THR values")
+            frontend_names_on_top()
+            integer_ticks_colorbar().set_label("THR")
+            pdf.savefig(); plt.clf()
+            del x_ti,y_ti, m_blocks,m_blocks_masked
+
+            # THR full row projection
+            plt.axes((0.125, 0.11, 0.775, 0.72))
+            nzc, nzr = np.nonzero(th)
+            if not nzc.size:
+                fc, lc, fr, lr = 0, 512, 0, 512
+            else:
+                fc, lc = nzc.min(), nzc.max() + 1
+                fr, lr = nzr.min(), nzr.max() + 1
+
+            del nzc, nzr
+            thr_rows = [np.mean(th[:,i]) for i in range(lr)]
+            indx = [i for i in range(lr)]
+            plt.plot(indx,thr_rows)
+            plt.xlabel("Row")
+            plt.ylabel("Mean THR")
+            plt.grid()
+            plt.title("Mean of THR values per row")
+            #frontend_names_on_top()
+            # integer_ticks_colorbar().set_label("TDAC")
+            pdf.savefig(); plt.clf()
+            del thr_rows,indx
+
+            # THR partial row projection
+            plt.axes((0.125, 0.11, 0.775, 0.72))
+            nzc, nzr = np.nonzero(th)
+            if not nzc.size:
+                fc, lc, fr, lr = 0, 512, 0, 512
+            else:
+                fc, lc = nzc.min(), nzc.max() + 1
+                fr, lr = nzr.min(), nzr.max() + 1
+            del nzc, nzr
+
+            ddx = matrix_dividers[0]
+            ddy = matrix_dividers[1]
+
+            # t_blocks = get_block_matrix(t[fc:lc, fr:lr],dx = ddx,dy=ddy).transpose()
+            t_blocks,t_blocks_masked = get_block_matrix(th[0:512, 0:512],dx = ddx,dy=ddy,mask=mk[0:512, 0:512])
+            t_blocks_masked = t_blocks_masked.transpose()
+            # t_blocks,_ = get_block_matrix(t[0:512, 0:512],dx = ddx,dy=ddy)
+            indx_col = [i for i in range(len(t_blocks_masked))]
+            indx = [i for i in range(len(t_blocks_masked[0]))]
+            # t_blocks_masked_m = [pp for pp in t_blocks_masked]
+            # plt.plot(indx,t_blocks_masked[0])
+            means = []
+            for j,p_col in enumerate(t_blocks_masked):
+                non_zero = [k for k in p_col if k != 0]
+                if len(non_zero)>0:
+                    plt.plot(indx,p_col,label=f"{ddx} cols group n.: {j}")
+                    means.append(np.mean(p_col))
+
+                # plt.plot(indx,p_col,label=f"col n.: {j}")
+            plt.xlabel(f"{ddy} x Row")
+            plt.ylabel("Mean THR")
+            plt.ylim(max(means)-2,max(means)+2)
+            # plt.xlim(0,100)
+            plt.grid()
+            plt.title(f"Mean of THR values for a {ddx}x{ddy} block")
+            plt.legend(loc="best")
+            #frontend_names_on_top()
+            # integer_ticks_colorbar().set_label("TDAC")
+            pdf.savefig(); plt.clf()
+            del indx_col,indx, t_blocks, t_blocks_masked
+
+
         # print("Summary")
 
         if n_total_hits == 0:
@@ -272,7 +533,7 @@ def main(input_files, overwrite=False, log_tot=False, output_file=None):
             pdf.savefig(); plt.clf()
         # print("Hitmap")
 
-        # Map of the average ToT
+        # Map of the average ToT tst
         with np.errstate(all='ignore'):
             totavg = tot2d / counts2d
         plt.pcolormesh(tot2d_edges, tot2d_edges, totavg.transpose(),
@@ -308,12 +569,12 @@ def main(input_files, overwrite=False, log_tot=False, output_file=None):
         # print("ToT map")
 
         # Noisy pixels
-        if all(c.get("configuration_in.scan.run_config.scan_id") == "source_scan" for c in cfg):
+        if all(c.get("configuration_out.scan.run_config.scan_id") == "source_scan" for c in cfg):
             MAX_RATE = 0.001  # Above this rate [Hz] pixels are marked noisy
             scan_time = 10
             for i, c in enumerate(cfg):
                 try:
-                    scan_time += float(c["configuration_in.scan.scan_config.scan_time"])
+                    scan_time += float(c["configuration_out.scan.scan_config.scan_time"])
                 except Exception:
                     print(f"WARNING: could not determine scan time from {input_files[i]}")
             max_hits = scan_time * MAX_RATE
@@ -404,7 +665,7 @@ if __name__ == "__main__":
         for pattern in args.input_file:
             files.extend(glob.glob(pattern, recursive=True))
     else:
-        files.extend(glob.glob("output_data/module_0/chip_0/*_interpreted.h5"))
+        files.extend(glob.glob("output_data/module_0_guglielmo/chip_0/*_interpreted.h5"))
     files.sort()
 
     if args.join is None:
