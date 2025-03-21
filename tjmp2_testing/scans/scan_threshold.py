@@ -15,8 +15,8 @@ import yaml
 
 
 scan_configuration = {
-    'start_column': 470,
-    'stop_column': 472,
+    'start_column': 449,
+    'stop_column': 480,
     'start_row': 0,
     'stop_row': 512,
 
@@ -102,11 +102,13 @@ class ThresholdScan(ScanBase):
         col_bad = [] #
         # W8R6 bad columns (246 to 251 included: double-cols will be disabled)
         col_bad += [248]
+
         # # W8R13 pixels that fire even when disabled
         # col_bad += list(range(383,415)) # chip w8r13
         # col_bad += list(range(0,40)) # chip w8r13
+
         # Disable readout for double-columns of col_disabled and those outside start_column:stop_column
-        col_disabled = col_bad
+        col_disabled = list(col_bad)
         col_disabled += list(range(0, start_column & 0xfffe))
         col_disabled += list(range(stop_column + 1, 512))
         reg_values = [0xffff] * 16
@@ -124,12 +126,33 @@ class ThresholdScan(ScanBase):
             # To disable BCID distribution in all columns, use  self.chip._write_register(171+i, 0)
             # self.chip._write_register(171+i, v)
             # self.chip._write_register(171+i, 0xffff)
-            self.chip._write_register(171+i, 0)
+            # self.chip._write_register(171+i, 0)
             # EN_RO_RST_CONF
             self.chip._write_register(187+i, v)
             # EN_FREEZE_CONF
             self.chip._write_register(203+i, v)
             # Read back
+            # print(f"{i:3d} {v:016b} {self.chip._get_register_value(155+i):016b} {self.chip._get_register_value(171+i):016b} {self.chip._get_register_value(187+i):016b} {self.chip._get_register_value(203+i):016b}")
+
+        # Disable BCID for double-columns of col_disabled
+        col_disabled_BCID = list(col_bad)
+        # col_disabled_BCID += list(range(0,256))
+        reg_values = [0xffff] * 16
+        for col in col_disabled_BCID:
+            dcol = col // 2
+            reg_values[dcol//16] &= ~(1 << (dcol % 16))
+            # print(f"Disabling BCID in col {col}")
+        print(" ".join(f"{x:016b}" for x in reg_values))
+        for i, v in enumerate(reg_values):
+            # EN_BCID_CONF (to disable BCID distribution on cols under test, use 0 instead of v, doing this the TOT is 0 since Le and trailing edge are not assigned BCID is missing)
+            # To enable it all the matrix (higher I_LV and Temp), use  self.chip._write_register(171+i, 0xffff)
+            # To enable only the used columns, use  self.chip._write_register(171+i, v)
+            # To disable BCID distribution in all columns, use  self.chip._write_register(171+i, 0)
+            # self.chip._write_register(171+i, v)
+            self.chip._write_register(171+i, 0xffff)
+            # self.chip._write_register(171+i, 0)
+            # Read back
+            # print(f"Writing to BCID: {v:016b}")
             print(f"{i:3d} {v:016b} {self.chip._get_register_value(155+i):016b} {self.chip._get_register_value(171+i):016b} {self.chip._get_register_value(187+i):016b} {self.chip._get_register_value(203+i):016b}")
 
         self.chip.masks.apply_disable_mask()
@@ -142,7 +165,7 @@ class ThresholdScan(ScanBase):
         self.chip.registers["SEL_PULSE_EXT_CONF"].write(0)
         self.chip.registers["CMOS_TX_EN_CONF"].write(1)
 
-        # W8R06 irradiated HVC used TB2024 run 1566 TH=15.9 @30C and W8R04
+        # # W8R06 irradiated HVC used TB2024 run 1566 TH=15.9 @30C and W8R04
         self.chip.registers["IBIAS"].write(100)
         self.chip.registers["ITHR"].write(30) #def 30
         self.chip.registers["ICASN"].write(30) #def 30
@@ -155,7 +178,7 @@ class ThresholdScan(ScanBase):
         self.chip.registers["VCASC"].write(140)
         self.chip.registers["VCLIP"].write(255)
 
-        #  # # W8R13 not irradiate
+        # #  # # W8R13 not irradiate
         # self.chip.registers["IBIAS"].write(100)
         # self.chip.registers["ITHR"].write(64)  # TB ITHR=64
         # self.chip.registers["ICASN"].write(2)  # TB ICASN=20
@@ -168,7 +191,7 @@ class ThresholdScan(ScanBase):
         # self.chip.registers["VCASC"].write(205)
         # self.chip.registers["VCLIP"].write(255)
 
-        # # # # W8R06 irradiated DCC used TB2024 run 1484 THR=30.6 DAC and W8R4
+        # # # W8R06 irradiated DCC used TB2024 run 1484 THR=30.6 DAC and W8R4
         # self.chip.registers["IBIAS"].write(100)
         # self.chip.registers["ITHR"].write(64)  # TB ITHR=64
         # self.chip.registers["ICASN"].write(10)  # TB ICASN=20
